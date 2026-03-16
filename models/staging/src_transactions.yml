@@ -1,0 +1,9 @@
+version: 2
+
+sources:
+  - name: transactions_source
+    # Guna project ID dngn nombor & letak quote " " kalau perlu
+    database: "practice-1-490215" 
+    schema: raw_data
+    tables:
+      - name: transactions_batch_1
