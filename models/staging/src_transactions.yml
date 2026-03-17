@@ -2,8 +2,12 @@ version: 2
 
 sources:
   - name: transactions_source
-    # Guna project ID dngn nombor & letak quote " " kalau perlu
-    database: "practice-1-490215" 
-    schema: raw_data
+    database: transactions-practice
+    schema: raw_transactions
     tables:
       - name: transactions_batch_1
+        columns:
+          - name: txn_id
+            tests:
+              - unique
+              - not_null

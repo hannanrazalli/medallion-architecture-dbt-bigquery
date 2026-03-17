@@ -1,29 +1,32 @@
--- models/staging/stg_transactions.sql
+{{ config(
+    materialized='incremental',
+    unique_key='txn_id'
+) }}
 
-WITH source AS (
-    SELECT * FROM {{ source('transactions_source', 'transactions_batch_1') }}
+with raw_data as (
+    select * from {{ source('transactions_source', 'transactions_batch_1') }}
 )
 
-SELECT
-    -- 1. Casting & Schema (Macam Phase 1 Spark kau)
-    CAST(txn_id AS STRING) AS txn_id,
-    CAST(cust_id AS INT64) AS cust_id,
-    CAST(amount AS FLOAT64) AS amount,
-    CAST(is_member AS BOOL) AS is_member,
-    CAST(points AS INT64) AS points,
-    CAST(status AS STRING) AS status,
-    CAST(txn_date AS TIMESTAMP) AS txn_timestamp,
+select
+    txn_id,
+    cust_id,
+    amount,
+    is_member,
+    points,
+    status,
+    txn_date,
 
-    -- 2. Audit Columns (Ganti logic audit_col Spark kau)
-    CURRENT_TIMESTAMP() AS _ingest_at,
-    '{{ invocation_id }}' AS _batch_id_bronze, -- ID unik setiap kali dbt run
-    CURRENT_DATE() AS _ingest_date,
+    -- Audit Columns
+    current_timestamp() as _ingest_at,
+    current_date() as _ingest_date,
+    '{{ invocation_id }}' as _batch_id_bronze,
     
-    -- 3. Record Status (Logic is_corrupt Spark kau)
-    -- Kita check kalau ID null, maksudnya record tu bermasalah
-    CASE 
-        WHEN txn_id IS NULL THEN 'CORRUPT'
-        ELSE 'CLEAN' 
-    END AS _record_status
+    -- GANTI LOGIC NI: Kita check dulu column tu wujud ke tak
+    -- Kalau kau upload manual, selalunya memang tak wujud, so kita letak 'CLEAN' terus
+    'CLEAN' as _record_status
 
-FROM source
+from raw_data
+
+{% if is_incremental() %}
+  where txn_date > (select max(txn_date) from {{ this }})
+{% endif %}

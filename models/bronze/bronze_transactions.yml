@@ -1,0 +1,15 @@
+version: 2
+
+models:
+  - name: bronze_transactions
+    description: "Table bronze yang dah ada audit columns"
+    columns:
+      - name: txn_id
+        tests:
+          - unique
+          - not_null
+      - name: _record_status
+        description: "Status record sama ada CLEAN atau CORRUPT"
+        tests:
+          - accepted_values:
+              values: ['CLEAN', 'CORRUPT']
