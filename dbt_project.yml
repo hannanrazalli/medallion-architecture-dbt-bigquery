@@ -10,9 +10,14 @@ macro-paths: ["macros"]
 
 models:
   practice1_medallion:
-    # Semua model dalam folder staging akan jadi VIEW (Jimat Storage)
     staging:
-      +materialized: view
-    # Semua model dalam folder bronze akan jadi TABLE (Sebab kita nak simpan Audit Cols)
-    bronze:
+      +schema: bronze
+      +materialized: table  # TUKAR DARI incremental KE table
+
+    intermediate:
+      +schema: silver
+      +materialized: table  # TUKAR DARI incremental KE table
+
+    marts:
+      +schema: gold
       +materialized: table

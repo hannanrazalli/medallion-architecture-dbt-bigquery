@@ -4,6 +4,7 @@
 ) }}
 
 with raw_data as (
+    -- Pastikan nama source ni SAMA macam dalam src_transactions.yml kau
     select * from {{ source('transactions_source', 'transactions_batch_1') }}
 )
 
@@ -16,17 +17,13 @@ select
     status,
     txn_date,
 
-    -- Audit Columns
-    current_timestamp() as _ingest_at,
-    current_date() as _ingest_date,
-    '{{ invocation_id }}' as _batch_id_bronze,
-    
-    -- GANTI LOGIC NI: Kita check dulu column tu wujud ke tak
-    -- Kalau kau upload manual, selalunya memang tak wujud, so kita letak 'CLEAN' terus
-    'CLEAN' as _record_status
+    {{ audit_columns('bronze') }},
+    'CLEAN' as _record_status,
+    cast(null as string) as _source_file
 
 from raw_data
 
 {% if is_incremental() %}
+  -- Logic incremental untuk elak duplicate batch
   where txn_date > (select max(txn_date) from {{ this }})
 {% endif %}
