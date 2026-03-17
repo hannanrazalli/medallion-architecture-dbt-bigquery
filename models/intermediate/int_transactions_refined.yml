@@ -1,0 +1,21 @@
+version: 2
+
+models:
+  - name: int_transactions_refined
+    description: "Silver Layer: Clean & Deduplicated transactions with soft-delete logic."
+    columns:
+      - name: txn_id
+        tests:
+          - unique
+          - not_null
+      - name: status
+        tests:
+          - accepted_values:
+              arguments:
+                values: ['COMPLETED', 'PENDING', 'CANCELLED', 'UNKNOWN']
+      - name: amount
+        tests:
+          - not_null # Pastikan quarantine logic kita berfungsi
+
+  - name: int_transactions_quarantine
+    description: "Quarantine Table: Records that failed business rules or schema validation."
