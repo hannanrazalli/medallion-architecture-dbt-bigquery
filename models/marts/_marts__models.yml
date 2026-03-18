@@ -1,0 +1,28 @@
+version: 2
+
+models:
+  - name: dim_customers
+    description: "Table dimension untuk customer. Ada SCD logic is_current."
+    columns:
+      - name: cust_id
+        tests:
+          - unique
+          - not_null
+
+  - name: fct_transactions
+    description: "Table fakta transaksi yang dah bersih (Gold)"
+    columns:
+      - name: txn_id
+        tests:
+          - unique
+          - not_null
+      - name: amount
+        tests:
+          - not_null
+      - name: cust_id
+        tests:
+          - relationships:
+              # PINDAHKAN KE DALAM SINI
+              arguments:
+                to: ref('dim_customers')
+                field: cust_id
