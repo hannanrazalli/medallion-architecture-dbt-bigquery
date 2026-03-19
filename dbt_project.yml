@@ -9,15 +9,15 @@ seed-paths: ["seeds"]
 macro-paths: ["macros"]
 
 models:
-  practice1_medallion:
+  practice1_medallion
     staging:
       +schema: bronze
-      +materialized: table  # TUKAR DARI incremental KE table
+      +materialized: incremental
 
     intermediate:
       +schema: silver
-      +materialized: table  # TUKAR DARI incremental KE table
+      +materialized: incremental
 
     marts:
       +schema: gold
-      +materialized: table
+      +materialized: incremental
