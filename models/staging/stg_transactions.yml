@@ -2,28 +2,27 @@ version: 2
 
 models:
   - name: stg_transactions
-    description: >
-      **Layer:** Bronze / Staging.
-      **Source:** Raw JSON via BigQuery.
-      **Note:** Model ini adalah 'pass-through' dengan penambahan audit columns. 
-      Deduplication dilakukan di layer Intermediate.
+    description: "Add audit columns"
     columns:
       - name: txn_id
-        description: "ID Transaksi asal. Mungkin mengandungi duplikasi."
+        description: "Transactions ID. May have duplicates"
         tests:
-          - not_null  # Wajib ada ID, tapi tak semestinya unik lagi.
+          - not_null
 
       - name: amount
-        description: "Nilai transaksi dalam RM."
+        description: "Amount in RM"
         tests:
           - not_null
 
       - name: _record_status
-        description: "Status flag dari source (CLEAN/CORRUPT)."
+        description: "CLEAN / CORRUPT"
         tests:
           - accepted_values:
               arguments:
                 values: ['CLEAN', 'CORRUPT']
 
       - name: _ingest_at
-        description: "Timestamp data dimasukkan ke dalam warehouse."
+        description: "Data timestamp ingested into warehouse."
+
+      - name: _source_file
+        description: "Nama fail asal dari Cloud Storage/S3."
