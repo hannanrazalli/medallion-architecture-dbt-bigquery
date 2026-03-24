@@ -1,13 +1,13 @@
 {{ config(
-    materialized='incremental', 
+    materialized='incremental',
     unique_key='txn_id'
 ) }}
 
-with raw_data as (
-    select * from {{ source('transactions_source', 'transactions_batch_1') }}
+WITH raw_data AS (
+    SELECT * FROM {{ source('transactions_source', 'transactions_batch_1') }}
 )
 
-select
+SELECT
     txn_id,
     cust_id,
     amount,
@@ -15,6 +15,19 @@ select
     is_member,
     status,
     txn_date,
+    {{ audit_columns('bronze') }},
+    CASE
+        WHEN txn_id IS NULL OR txn_id = '' THEN 'CORRUPT'
+        WHEN cust_id IS NULL OR cust_id < 0 THEN 'CORRUPT'
+        WHEN amount IS NULL OR amount < 0 THEN 'CORRUPT'
+        WHEN points IS NULL OR points < 0 THEN 'CORRUPT'
+        WHEN is_member IS NULL THEN 'CORRUPT'
+        WHEN status IS NULL OR status = '' THEN 'CORRUPT'
+        WHEN txn_date IS NULL THEN 'CORRUPT'
+        ELSE 'CLEAN'
+    END AS _record_status
+FROM raw_data
 
-    case
-        when txn_id is null or 
+{% if is_incremental() %}
+  WHERE _ingest_at > (SELECT max(_ingest_at) FROM {{ this }}) - INTERVAL 1 HOUR
+{% endif %}
