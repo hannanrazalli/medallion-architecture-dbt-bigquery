@@ -29,5 +29,5 @@ SELECT
 FROM raw_data
 
 {% if is_incremental() %}
-  WHERE _ingest_at > (SELECT max(_ingest_at) FROM {{ this }}) - INTERVAL 1 HOUR
+  WHERE _ingest_at > (SELECT max(_ingest_at) FROM{{ this }}) - INTERVAL 1 HOUR
 {% endif %}

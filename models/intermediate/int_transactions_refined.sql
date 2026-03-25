@@ -37,13 +37,11 @@ transformed as (
         _ingest_at,
         _batch_id_bronze,
         _source_file,
-        -- TAMBAH LINE NI: Supaya filter kat bawah boleh nampak column ni
         _record_status, 
         {{ audit_columns('silver') }}
     from deduplicated
 )
 
--- Sekarang dbt dah boleh nampak _record_status
 select * from transformed
 where amount is not null 
   and points is not null
