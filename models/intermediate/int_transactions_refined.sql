@@ -4,47 +4,46 @@
     incremental_strategy='merge'
 ) }}
 
-with source_data as (
-    select * from {{ ref('stg_transactions') }}
+WITH source_data AS (
+    SELECT * FROM {{ ref('stg_transactions') }}
     {% if is_incremental() %}
-      where _ingest_at > (select timestamp_sub(max(_ingest_at), interval 1 hour) from {{ this }})
+      WHERE _ingest_at > (
+          SELECT TIMESTAMP_SUB(MAX(_ingest_at), INTERVAL 1 HOUR) 
+          FROM {{ this }}
+      )
     {% endif %}
 ),
 
-deduplicated as (
-    select *
-    from source_data
-    qualify row_number() over (
-        partition by txn_id 
-        order by _ingest_at desc
+deduplicate AS (
+    SELECT * FROM source_data
+    QUALIFY ROW_NUMBER() OVER(
+        PARTITION BY txn_id
+        ORDER BY _ingest_at DESC
     ) = 1
 ),
 
-transformed as (
-    select
+transformed AS (
+    SELECT
         txn_id,
         cust_id,
-        cast(amount as float64) as amount,
-        cast(points as int64) as points,
+        amount,
+        points,
         is_member,
-        case 
-            when upper(trim(status)) in ('COMPLETED', 'PENDING', 'CANCELLED') 
-            then upper(trim(status))
-            else 'UNKNOWN'
-        end as status,
+        CASE
+            WHEN UPPER(TRIM(status)) IN ('COMPLETED', 'CANCELLED', 'PENDING') THEN UPPER(TRIM(status))
+            ELSE 'UNKNOWN'
+        END AS status,
         (upper(trim(status)) = 'CANCELLED') as is_deleted,
         txn_date,
         _ingest_at,
-        _batch_id_bronze,
-        _source_file,
-        -- TAMBAH LINE NI: Supaya filter kat bawah boleh nampak column ni
-        _record_status, 
+        _batch_id_bronze, 
+        _record_status,
         {{ audit_columns('silver') }}
-    from deduplicated
+    FROM deduplicate
 )
 
--- Sekarang dbt dah boleh nampak _record_status
-select * from transformed
-where amount is not null 
-  and points is not null
-  and _record_status = 'CLEAN'
+SELECT *
+FROM transformed
+WHERE amount IS NOT NULL
+  AND points IS NOT NULL
+  AND _record_status = 'CLEAN'
