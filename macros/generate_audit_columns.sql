@@ -1,7 +1,7 @@
-{%  macro audit_columns(layer) %}
+{% macro audit_columns(layer) %}
     {% if layer == 'bronze' %}
         current_timestamp() AS _ingest_at,
-        current_date AS _ingest_date,
+        current_date() AS _ingest_date,
         '{{ invocation_id }}' AS _batch_id_bronze
     {% elif layer == 'silver' %}
         current_timestamp() AS _processed_at,

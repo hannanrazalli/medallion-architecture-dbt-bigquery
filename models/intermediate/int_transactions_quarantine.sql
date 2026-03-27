@@ -1,15 +1,15 @@
-{{ config(materialized='incremental', unique_key='txn_id') }}
+{{ config(
+    materialized='incremental',
+    unique_key='txn_id'
+) }}
 
-with source as (
-    select * from {{ ref('stg_transactions') }}
+WITH source_data AS (
+    SELECT *
+    FROM {{ ref('stg_transactions') }}
 )
 
--- Ambil data yang memang CORRUPT dari Bronze
--- ATAU yang gagal QC di Silver (Amount/Points NULL)
-select 
-    *,
-    current_timestamp() as _quarantined_at
-from source
-where _record_status = 'CORRUPT'
-   or amount is null
-   or points is null
+SELECT *
+FROM source_data
+WHERE _record_status = 'CORRUPT'
+  OR amount IS NULL
+  OR points IS NULL
