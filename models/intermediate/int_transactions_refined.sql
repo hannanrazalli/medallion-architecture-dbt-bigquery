@@ -7,12 +7,10 @@
 WITH source_data AS (
     SELECT *
     FROM {{ ref('stg_transactions') }}
-    {% if is_incremental() %}
-      WHERE _ingest_at > (
+    WHERE _ingest_at > (
         SELECT timestamp_sub(max(_ingest_at), INTERVAL 1 HOUR)
         FROM {{ this }}
-      )
-    {% endif %}
+    )
 ),
 
 deduplicate AS (
@@ -36,6 +34,7 @@ transformed AS (
             ELSE 'UNKNOWN'
         END AS status,
         txn_date,
+        (upper(trim(status)) = 'CANCELLED') AS is_deleted,
         _record_status,
         _ingest_at,
         _batch_id_bronze,
