@@ -12,10 +12,10 @@ WITH source_data AS (
         _processed_at AS valid_from
     FROM {{ ref('int_transactions_refined') }}
     {% if is_incremental() %}
-      WHERE _processed_at > (
-        SELECT max(valid_from)
-        FROM {{ this }}
-      )
+        WHERE _processed_at > (
+            SELECT max(valid_from)
+            FROM {{ this }}
+        )
     {% endif %}
 ),
 
@@ -34,8 +34,8 @@ final_staged AS (
         cust_id,
         is_member,
         valid_from,
-        cast(NULL as timestamp) AS valid_to,
-        true as is_current,
+        cast(null as timestamp) AS valid_to,
+        true AS is_current,
         {{ audit_columns('gold') }}
     FROM deduplicate
 )
@@ -56,7 +56,7 @@ SELECT
     {{ audit_columns('gold') }}
 FROM {{ this }} t
 INNER JOIN final_staged s
-    ON t.cust_id = s._cust_id
+    ON t.cust_id = s.cust_id
 WHERE t.is_current = true
-  AND t.hash_key <> s.hash_key
+    AND t.hash_key <> s.hash_key
 {% endif %}
