@@ -1,3 +1,8 @@
+{%- set source_model = ref('int_transactions_refined') -%}
+
+{%- set columns = adapter.get_columns_in_relation(source_model) -%}
+{%- set pk = "cust_id" -%} {#-- Kau cuma perlu define PK kat sini je --#}
+
 {{ config(
     materialized='incremental',
     unique_key='hash_key',
@@ -5,58 +10,58 @@
     on_schema_change='append_new_columns'
 ) }}
 
-WITH source_data AS (
-    SELECT
-        cust_id,
-        is_member,
-        _processed_at AS valid_from
-    FROM {{ ref('int_transactions_refined') }}
+with source_data as (
+    select
+        {% for col in columns -%}
+            {{ col.name }}{% if not loop.last %}, {% endif %}
+        {%- endfor %},
+        _processed_at as valid_from
+    from {{ source_model }}
     {% if is_incremental() %}
-        WHERE _processed_at > (
-            SELECT max(valid_from)
-            FROM {{ this }}
-        )
+      where _processed_at > (select max(valid_from) from {{ this }})
     {% endif %}
 ),
 
-deduplicate AS (
-    SELECT *
-    FROM source_data
-    qualify row_number() over(
-        partition by cust_id
+deduplicated as (
+    select *
+    from source_data
+    qualify row_number() over (
+        partition by {{ pk }} 
         order by valid_from desc
     ) = 1
 ),
 
-final_staged AS (
-    SELECT
-        {{ dbt_utils.generate_surrogate_key(['cust_id', 'is_member']) }} AS hash_key,
-        cust_id,
-        is_member,
+final_staged as (
+    select
+        {{ dbt_utils.generate_surrogate_key(columns | map(attribute='name') | list) }} as hash_key,
+        {% for col in columns -%}
+            {{ col.name }},
+        {%- endfor %}
+        
         valid_from,
-        cast(null as timestamp) AS valid_to,
-        true AS is_current,
-        {{ audit_columns('gold') }}
-    FROM deduplicate
+        cast(null as timestamp) as valid_to,
+        true as is_current,
+        {{ audit_columns(layer='gold') }}
+    from deduplicated
 )
 
-SELECT *
-FROM final_staged
+select * from final_staged
 
 {% if is_incremental() %}
 union all
 
-SELECT
+select
     t.hash_key,
-    t.cust_id,
-    t.is_member,
+    {% for col in columns -%}
+        t.{{ col.name }},
+    {%- endfor %}
     t.valid_from,
-    s.valid_from AS valid_to,
-    false AS is_current,
-    {{ audit_columns('gold') }}
-FROM {{ this }} t
-INNER JOIN final_staged s
-    ON t.cust_id = s.cust_id
-WHERE t.is_current = true
-    AND t.hash_key <> s.hash_key
+    s.valid_from as valid_to,
+    false as is_current,
+    {{ audit_columns(layer='gold') }}
+from {{ this }} t
+inner join final_staged s 
+    on t.{{ pk }} = s.{{ pk }}
+where t.is_current = true
+  and t.hash_key <> s.hash_key
 {% endif %}
