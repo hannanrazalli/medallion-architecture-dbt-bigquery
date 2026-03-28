@@ -1,7 +1,6 @@
 {%- set source_model = ref('int_transactions_refined') -%}
-
 {%- set columns = adapter.get_columns_in_relation(source_model) -%}
-{%- set pk = "cust_id" -%} {#-- Kau cuma perlu define PK kat sini je --#}
+{%- set pk = "cust_id" -%}
 
 {{ config(
     materialized='incremental',

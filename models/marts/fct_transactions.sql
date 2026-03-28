@@ -1,3 +1,6 @@
+{%- set source_model = ref('int_transactions_refined') -%}
+{%- set columns = adapter.get_columns_in_relation(source_model) -%}
+
 {{ config(
     materialized='incremental',
     unique_key='txn_id',
@@ -11,25 +14,22 @@
 ) }}
 
 with silver_data as (
-    select * from {{ ref('int_transactions_refined') }}
+    select 
+        {% for col in columns -%}
+            {{ col.name }}{% if not loop.last %}, {% endif %}
+        {%- endfor %},
+        cast(txn_date as date) as txn_date_key
+    from {{ source_model }}
     where is_deleted = false
     
     {% if is_incremental() %}
-      -- Gunakan _processed_at_gold (dari macro gold kau) untuk watermark
       and _processed_at > (select max(_processed_at_gold) from {{ this }})
     {% endif %}
 ),
 
 final_fact as (
     select
-        txn_id,
-        cust_id,
-        amount,
-        points,
-        status,
-        -- Business Date Key (Partition Key)
-        cast(txn_date as date) as txn_date_key,
-        -- Panggil macro dengan argument yang betul
+        * ,
         {{ audit_columns(layer='gold') }}
     from silver_data
     where amount > 0 
