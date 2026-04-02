@@ -1,3 +1,10 @@
+{#-- PHASE 3: DIM ENGINE (dbt version) --#}
+{%- set source_model = ref('int_transactions_refined') -%}
+
+{#-- Sini kau letak column yang kau nak sahaja (macam config dlm PySpark) --#}
+{%- set dim_cols = ['cust_id', 'is_member'] -%}
+{%- set pk = dim_cols[0] -%} {#-- Ambil cust_id sebagai PK --#}
+
 {{ config(
     materialized='incremental',
     unique_key='hash_key',
@@ -5,62 +12,63 @@
     on_schema_change='append_new_columns'
 ) }}
 
--- CTE 1: Ambil data baru dari Silver (Incremental logic)
 with source_data as (
     select
-        cust_id,
-        is_member,
+        -- Hanya loop column yang kita dah define dalam dim_cols
+        {% for col in dim_cols -%}
+            {{ col }}{% if not loop.last %}, {% endif %}
+        {%- endfor %},
         _processed_at as valid_from
-    from {{ ref('int_transactions_refined') }}
+    from {{ source_model }}
     {% if is_incremental() %}
-      -- Watermark logic untuk jimat kos BigQuery
+      -- Watermark: Jimat kos BQ
       where _processed_at > (select max(valid_from) from {{ this }})
     {% endif %}
 ),
 
--- CTE 2: Deduplikasi (Grain of Truth - 1 row per customer per batch)
 deduplicated as (
     select *
     from source_data
     qualify row_number() over (
-        partition by cust_id 
+        partition by {{ pk }} 
         order by valid_from desc
     ) = 1
 ),
 
--- CTE 3: Prepare record baru (SCD 2 - New/Current Record)
 final_staged as (
     select
-        {{ dbt_utils.generate_surrogate_key(['cust_id', 'is_member']) }} as hash_key,
-        cust_id,
-        is_member,
+        -- Generate hash_key guna list dim_cols sahaja
+        {{ dbt_utils.generate_surrogate_key(dim_cols) }} as hash_key,
+        
+        {% for col in dim_cols -%}
+            {{ col }},
+        {%- endfor %}
+        
         valid_from,
         cast(null as timestamp) as valid_to,
         true as is_current,
-        -- Panggil macro dengan string 'gold'
-        {{ audit_columns('gold') }}
+        {{ audit_columns(layer='gold') }}
     from deduplicated
 )
 
--- FINAL OUTPUT
 select * from final_staged
 
 {% if is_incremental() %}
 union all
 
--- PRO LOGIC: "Expire-kan" record lama kalau ada perubahan hash_key
+-- PRO LOGIC: Expire-kan record lama
 select
     t.hash_key,
-    t.cust_id,
-    t.is_member,
+    {% for col in dim_cols -%}
+        t.{{ col }},
+    {%- endfor %}
     t.valid_from,
-    s.valid_from as valid_to, 
+    s.valid_from as valid_to,
     false as is_current,
-    -- Pastikan panggil macro yang sama untuk struktur column yang sama
-    {{ audit_columns('gold') }}
+    {{ audit_columns(layer='gold') }}
 from {{ this }} t
 inner join final_staged s 
-    on t.cust_id = s.cust_id
+    on t.{{ pk }} = s.{{ pk }}
 where t.is_current = true
-  and t.hash_key <> s.hash_key 
+  and t.hash_key <> s.hash_key
 {% endif %}
