@@ -1,6 +1,6 @@
-{%- set model_cfg = var('dim_tables')['dim_customers'] -%}
-{%- set source_model = ref(model_cfg['source']) -%}
-{%- set dim_cols = model_cfg['columns'] -%}
+{%- set cfg = var('dim_tables')['dim_customers'] -%}
+{%- set source_silver = ref(cfg['source']) -%}
+{%- set dim_cols = cfg['columns'] -%}
 {%- set pk = dim_cols[0] -%}
 
 {{ config(
@@ -10,59 +10,61 @@
     on_schema_change='append_new_columns'
 ) }}
 
-with source_data as (
-    select
-        {% for col in dim_cols -%}
-            {{ col }}{% if not loop.last %}, {% endif %}
-        {%- endfor %},
-        _processed_at as valid_from
-    from {{ source_model }}
+WITH source_data AS (
+    SELECT
+        {% for cols in dim_cols %}
+            {{ cols }}{% if not loop.last %}, {% endif %}
+        {% endfor %},
+        _processed_at AS valid_from
+    FROM {{ source_silver }}
     {% if is_incremental() %}
-      where _processed_at > (select max(valid_from) from {{ this }})
+        WHERE _processed_at > (
+            SELECT max(valid_from)
+            FROM {{ this }})
     {% endif %}
 ),
 
-deduplicated as (
-    select *
-    from source_data
-    qualify row_number() over (
-        partition by {{ pk }} 
+deduplicate AS (
+    SELECT *
+    FROM source_data
+    qualify row_number() over(
+        partition by {{ pk }}
         order by valid_from desc
     ) = 1
 ),
 
-final_staged as (
-    select
-        {{ dbt_utils.generate_surrogate_key(dim_cols) }} as hash_key,
-        
-        {% for col in dim_cols -%}
-            {{ col }},
-        {%- endfor %}
-        
+final_staged AS (
+    SELECT
+        {{ dbt_utils.generate_surrogate_key(dim_cols) }} AS hash_key,
+        {% for cols in dim_cols %}
+            {{ cols }}{% if not loop.last %}, {% endif %}
+        {% endfor %},
         valid_from,
-        cast(null as timestamp) as valid_to,
-        true as is_current,
-        {{ audit_columns(layer='gold') }}
-    from deduplicated
+        cast(null as timestamp) AS valid_to,
+        true AS is_current,
+        {{ audit_columns('gold') }}
+    FROM deduplicate
 )
 
-select * from final_staged
+SELECT *
+FROM final_staged
 
 {% if is_incremental() %}
 union all
 
-select
+SELECT
     t.hash_key,
-    {% for col in dim_cols -%}
-        t.{{ col }},
-    {%- endfor %}
+    {% for cols in dim_cols %}
+        {{ cols }}{% if not loop.last %}, {% endif %}
+    {% endfor %},
     t.valid_from,
-    s.valid_from as valid_to,
-    false as is_current,
-    {{ audit_columns(layer='gold') }}
-from {{ this }} t
-inner join final_staged s 
-    on t.{{ pk }} = s.{{ pk }}
-where t.is_current = true
-  and t.hash_key <> s.hash_key
+    s.valid_from AS valid_to,
+    false AS is_current,
+    {{ audit_columns('gold') }}
+FROM {{ this }} t
+INNER JOIN final_staged s
+    ON t.{{ pk }} = s.{{ pk }}
+WHERE t.is_current = true
+    AND t.hash_key <> s.hash_key
+
 {% endif %}
