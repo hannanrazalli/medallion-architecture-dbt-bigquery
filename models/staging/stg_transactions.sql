@@ -30,8 +30,7 @@ SELECT
 FROM raw_data
 
 {% if is_incremental() %}
-  WHERE _ingest_at > (
-    SELECT timestamp_sub(max(_ingest_at), INTERVAL 1 HOUR)
-    FROM {{ this }}
-  )
+    WHERE _ingest_at > (
+        SELECT timestamp_sub(max(_ingest_at), INTERVAL 1 HOUR)
+        FROM {{ this }})
 {% endif %}

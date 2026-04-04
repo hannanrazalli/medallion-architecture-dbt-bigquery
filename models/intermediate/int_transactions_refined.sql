@@ -1,5 +1,6 @@
 {{ config(
-    unique_key='hash_key',
+    materialized='incremental',
+    unique_key='txn_id',
     incremental_strategy='merge'
 ) }}
 
@@ -9,8 +10,7 @@ WITH source_data AS (
     {% if is_incremental() %}
         WHERE _ingest_at > (
             SELECT timestamp_sub(max(_ingest_at), INTERVAL 1 HOUR)
-            FROM {{ this }}
-        )
+            FROM {{ this }})
     {% endif %}
 ),
 
@@ -35,10 +35,10 @@ transformed AS (
             ELSE 'UNKNOWN'
         END AS status,
         txn_date,
+        (upper(trim(status)) = 'CANCELLED') AS _is_deleted,
         _record_status,
         _ingest_at,
         _batch_id_bronze,
-        (upper(trim(status)) = 'CANCELLED') AS _is_deleted,
         {{ audit_columns('silver') }}
     FROM deduplicate
 )
