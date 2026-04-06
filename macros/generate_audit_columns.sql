@@ -7,7 +7,7 @@
         current_timestamp() AS _processed_at,
         '{{ invocation_id }}' AS _batch_id_silver
     {% elif layer == 'gold' %}
-        current_timestamp() AS _processed_at_gold,
+        current_timestamp() AS _refined_at,
         '{{ invocation_id }}' AS _batch_id_gold
     {% endif %}
 {% endmacro %}

@@ -23,7 +23,7 @@ deduplicate AS (
     ) = 1
 ),
 
-transformed AS (
+final_staged AS (
     SELECT
         txn_id,
         cust_id,
@@ -44,7 +44,7 @@ transformed AS (
 )
 
 SELECT *
-FROM transformed
+FROM final_staged
 WHERE amount IS NOT NULL
   AND points IS NOT NULL
   AND _record_status = 'CLEAN'

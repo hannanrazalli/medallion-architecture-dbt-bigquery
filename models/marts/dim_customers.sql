@@ -1,7 +1,7 @@
-{% set cfg = var('dim_tables')['dim_customers'] %}
-{% set source_silver = ref(cfg['source']) %}
-{% set dim_cols = cfg['columns'] %}
-{% set pk = dim_cols[0] %}
+{%- set cfg = var('dim_tables')['dim_customers'] -%}
+{%- set source_silver = ref(cfg['source']) -%}
+{%- set dim_cols = cfg['columns'] -%}
+{%- set pk = dim_cols[0] -%}
 
 {{ config(
     materialized='incremental',
@@ -60,11 +60,11 @@ SELECT
     t.valid_from,
     s.valid_from AS valid_to,
     false AS is_current,
-    {{ audit_columns('gold') }}
+    {{ audit_columns }}
 FROM {{ this }} t
 INNER JOIN final_staged s
     ON t.{{ pk }} = s.{{ pk }}
 WHERE t.is_current = true
-  AND t.hash_key <> s.hash_key
+    AND t.hash_key <> s.hash_key
 
 {% endif %}
