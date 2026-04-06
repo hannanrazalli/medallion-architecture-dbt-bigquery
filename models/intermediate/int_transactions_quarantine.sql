@@ -23,7 +23,7 @@ deduplicate AS (
     ) = 1
 ),
 
-transformed AS (
+final_staged AS (
     SELECT
         txn_id,
         cust_id,
@@ -35,7 +35,7 @@ transformed AS (
             ELSE 'UNKNOWN'
         END AS status,
         txn_date,
-        (upper(trim(status)) = 'CANCELLED') AS _is_deleted,
+        (upper(trim(status)) = 'CANCELLED') AS is_deleted,
         _record_status,
         _ingest_at,
         _batch_id_bronze,
@@ -44,7 +44,7 @@ transformed AS (
 )
 
 SELECT *
-FROM transformed
-WHERE amount IS NULL
-  OR points IS NULL
+FROM final_staged
+WHERE amount IS NOT NULL
+  OR points IS NOT NULL
   OR _record_status = 'CORRUPT'

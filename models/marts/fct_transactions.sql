@@ -1,46 +1,50 @@
 {%- set cfg = var('fact_tables')['fct_transactions'] -%}
-{%- set source_model = ref(cfg['source']) -%}
+{%- set source_silver = ref(cfg['source']) -%}
 {%- set fact_cols = cfg['columns'] -%}
 {%- set pk = fact_cols[0] -%}
 
 {{ config(
     materialized='incremental',
-    unique_key=pk,
+    unique_key='hash_key',
     incremental_strategy='merge',
     on_schema_change='append_new_columns',
     partition_by={
-      "field": "txn_date_key",
-      "data_type": "date",
-      "granularity": "day"
+        "field" : "txn_date_key",
+        "data_type" : "date",
+        "granularity" : "day"
     }
 ) }}
 
-with silver_data as (
-    select 
-        {% for col in fact_cols -%}
-            {{ col }}{% if not loop.last %}, {% endif %}
-        {%- endfor %},
-        cast(txn_date as date) as txn_date_key,
-        _processed_at 
-    from {{ source_model }}
-    where _is_deleted = false
-    
+
+WITH source_data AS (
+    SELECT
+        {% for cols in fact_cols %}
+            {{ cols }}{% if not loop.last %}, {% endif %}
+        {% endfor %},
+        cast(txn_date as date) AS txn_date_key,
+        _processed_at
+    FROM {{ source_silver }}
+    WHERE _is_deleted = false
     {% if is_incremental() %}
-      and _processed_at > (select max(_processed_at_gold) from {{ this }})
+        AND _processed_at > (
+            SELECT timestamp_sub(max(_processed_at), INTERVAL 1 HOUR)
+            FROM {{ this }})
     {% endif %}
 ),
 
-final_fact as (
-    select
-        {{ dbt_utils.generate_surrogate_key(fact_cols) }} as fact_hash_key,
-        {% for col in fact_cols -%}
-            {{ col }},
-        {%- endfor %}
+final_staged AS (
+    SELECT
+        {{ dbt_utils.generate_surrogate_key(fact_cols) }} AS hash_key,
+        {% for cols in fact_cols %}
+            {% if cols != 'txn_date' %}
+                {{ cols }},
+            {% endif %}
+        {% endfor %}
         txn_date_key,
         {{ audit_columns('gold') }}
-    from silver_data
-    where amount > 0 
-      and cust_id is not null
+    FROM source_data
 )
 
-select * from final_fact
+SELECT *
+FROM final_staged
+WHERE cust_id IS NOT NULL
