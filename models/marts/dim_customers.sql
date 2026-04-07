@@ -43,7 +43,7 @@ final_staged AS (
         cast(null as timestamp) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM deduplicate
+    FROM source_data
 )
 
 SELECT *
@@ -58,9 +58,9 @@ SELECT
         t.{{ cols }}{% if not loop.last %}, {% endif %}
     {% endfor %},
     t.valid_from,
-    s.valid_from AS valid_to,
+    s,valid_from AS valid_to,
     false AS is_current,
-    {{ audit_columns }}
+    {{ audit_columns('gold') }}
 FROM {{ this }} t
 INNER JOIN final_staged s
     ON t.{{ pk }} = s.{{ pk }}
