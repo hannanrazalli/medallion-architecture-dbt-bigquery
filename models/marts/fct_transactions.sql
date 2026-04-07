@@ -15,14 +15,13 @@
     }
 ) }}
 
-
 WITH source_data AS (
     SELECT
         {% for cols in fact_cols %}
             {{ cols }}{% if not loop.last %}, {% endif %}
         {% endfor %},
-        cast(txn_date as date) AS txn_date_key,
-        _processed_at
+        _processed_at,
+        cast(txn_date as date) AS txn_date_key
     FROM {{ source_silver }}
     WHERE _is_deleted = false
     {% if is_incremental() %}
