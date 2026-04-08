@@ -9,5 +9,5 @@ sources:
         columns:
           - name: txn_id
             tests:
-              - unique
               - not_null
+              - unique
