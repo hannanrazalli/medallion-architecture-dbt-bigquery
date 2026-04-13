@@ -37,13 +37,13 @@ final_staged AS (
     SELECT
         {{ dbt_utils.generate_surrogate_key(dim_cols) }} AS hash_key,
         {% for cols in dim_cols %}
-            {{ cols }}{% if not loop.last %}, {% endif %}
+            t.{{ cols }}{% if not loop.last %}, {% endif %}
         {% endfor %},
         valid_from,
         cast(null as timestamp) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM source_data
+    FROM deduplicate
 )
 
 SELECT *
@@ -58,13 +58,13 @@ SELECT
         t.{{ cols }}{% if not loop.last %}, {% endif %}
     {% endfor %},
     t.valid_from,
-    s,valid_from AS valid_to,
+    s.valid from AS valid_to,
     false AS is_current,
     {{ audit_columns('gold') }}
 FROM {{ this }} t
-INNER JOIN final_staged s
+INNER JOin final_staged s
     ON t.{{ pk }} = s.{{ pk }}
 WHERE t.is_current = true
-    AND t.hash_key <> s.hash_key
+    AND t.hash_key = s.hash_key
 
 {% endif %}
