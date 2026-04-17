@@ -1,7 +1,8 @@
 {{ config(
     materialized='incremental',
     unique_key='txn_id',
-    incremental_strategy='merge'
+    incremental_strategy='merge',
+    on_schema_change='append_new_columns'
 ) }}
 
 WITH source_data AS (
