@@ -15,21 +15,21 @@ WITH source_data AS (
         {% for cols in dim_cols %}
             {{ cols }}{% if not loop.last %}, {% endif %}
         {% endfor %},
-        _processed_at AS valid_from
-    FROM {{ source_silver }}
+        _processed_at AS valid_from,
+    FROM {{  source_silver}}
     {% if is_incremental() %}
         WHERE _processed_at > (
-            SELECT max(valid_from)
+            SELECT timestamp_sub(max(_processed_at), INTERVAL 1 HOUR)
             FROM {{ this }})
     {% endif %}
 ),
 
-deduplicate AS (
+deduplication AS (
     SELECT *
     FROM source_data
     qualify row_number() over(
         partition by {{ pk }}
-        order by valid_from desc
+        order by valid from desc
     ) = 1
 ),
 
@@ -37,13 +37,13 @@ final_staged AS (
     SELECT
         {{ dbt_utils.generate_surrogate_key(dim_cols) }} AS hash_key,
         {% for cols in dim_cols %}
-            t.{{ cols }}{% if not loop.last %}, {% endif %}
+            {{ cols }}{% if not loop.last %}, {% endif %}
         {% endfor %},
         valid_from,
-        cast(null as timestamp) AS valid_to,
+        cast(null as date) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM deduplicate
+    FROM deduplication
 )
 
 SELECT *
@@ -58,13 +58,13 @@ SELECT
         t.{{ cols }}{% if not loop.last %}, {% endif %}
     {% endfor %},
     t.valid_from,
-    s.valid from AS valid_to,
+    s.valid_from AS valid_to,
     false AS is_current,
     {{ audit_columns('gold') }}
 FROM {{ this }} t
-INNER JOin final_staged s
+INNER JOIN final_staged s
     ON t.{{ pk }} = s.{{ pk }}
 WHERE t.is_current = true
-    AND t.hash_key = s.hash_key
+    AND t.hash_key != s.hash_key
 
 {% endif %}
