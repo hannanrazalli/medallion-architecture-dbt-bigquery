@@ -19,7 +19,7 @@ WITH source_data AS (
     FROM {{  source_silver}}
     {% if is_incremental() %}
         WHERE _processed_at > (
-            SELECT timestamp_sub(max(_processed_at), INTERVAL 1 HOUR)
+            SELECT max(valid_from)
             FROM {{ this }})
     {% endif %}
 ),
