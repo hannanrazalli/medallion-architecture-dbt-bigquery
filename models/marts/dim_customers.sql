@@ -29,7 +29,7 @@ deduplication AS (
     FROM source_data
     qualify row_number() over(
         partition by {{ pk }}
-        order by valid from desc
+        order by valid_from desc
     ) = 1
 ),
 
