@@ -47,3 +47,4 @@ final_staged AS (
 SELECT *
 FROM final_staged
 WHERE cust_id IS NOT NULL
+    AND amount IS NOT NULL
