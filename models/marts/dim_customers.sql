@@ -15,8 +15,8 @@ WITH source_data AS (
         {% for cols in dim_cols %}
             {{ cols }}{% if not loop.last %}, {% endif %}
         {% endfor %},
-        _processed_at AS valid_from,
-    FROM {{  source_silver }}
+        _processed_at AS valid_from
+    FROM {{ source_silver }}
     {% if is_incremental() %}
         WHERE _processed_at > (
             SELECT max(valid_from)
@@ -24,7 +24,7 @@ WITH source_data AS (
     {% endif %}
 ),
 
-deduplication AS (
+deduplicate AS (
     SELECT *
     FROM source_data
     qualify row_number() over(
@@ -43,7 +43,7 @@ final_staged AS (
         cast(null as timestamp) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM deduplication
+    FROM deduplicate
 )
 
 SELECT *
