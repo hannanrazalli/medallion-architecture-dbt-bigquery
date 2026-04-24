@@ -24,7 +24,7 @@ WITH source_data AS (
     {% endif %}
 ),
 
-deduplicate AS (
+deduplication AS (
     SELECT *
     FROM source_data
     qualify row_number() over(
@@ -43,7 +43,7 @@ final_staged AS (
         cast(null as timestamp) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM deduplicate
+    FROM deduplication
 )
 
 SELECT *
@@ -56,7 +56,7 @@ SELECT
     t.hash_key,
     {% for cols in dim_cols %}
         t.{{ cols }}{% if not loop.last %}, {% endif %}
-    {% endfor %},
+    {% endfor %},,
     t.valid_from,
     s.valid_from AS valid_to,
     false AS is_current,
