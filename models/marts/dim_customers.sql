@@ -56,7 +56,7 @@ SELECT
     t.hash_key,
     {% for cols in dim_cols %}
         t.{{ cols }}{% if not loop.last %}, {% endif %}
-    {% endfor %},,
+    {% endfor %},
     t.valid_from,
     s.valid_from AS valid_to,
     false AS is_current,

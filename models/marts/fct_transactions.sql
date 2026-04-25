@@ -21,7 +21,7 @@ WITH source_data AS (
             {{ cols }}{% if not loop.last %}, {% endif %}
         {% endfor %},
         _processed_at,
-        cast(txn_date as date) AS txn_date_key
+        cast(txn_date AS date) AS txn_date_key
     FROM {{ source_silver }}
     WHERE _is_deleted = false
     {% if is_incremental() %}
@@ -46,5 +46,3 @@ final_staged AS (
 
 SELECT *
 FROM final_staged
-WHERE cust_id IS NOT NULL
-    AND amount IS NOT NULL
