@@ -19,7 +19,7 @@ WITH source_data AS (
     FROM {{ source_silver }}
     {% if is_incremental() %}
         WHERE _processed_at > (
-            max(valid_from)
+            SELECT max(valid_from)
             FROM {{ this }})
     {% endif %}
 ),
@@ -63,7 +63,7 @@ SELECT
     {{ audit_columns('gold') }}
 FROM {{ this }} t
 INNER JOIN final_staged s
-    ON t.{{ pk }} = t.{{ pk }}
+    ON t.{{ pk }} = s.{{ pk }}
 WHERE t.is_current = true
     AND t.hash_key != s.hash_key
 
