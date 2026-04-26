@@ -24,7 +24,7 @@ WITH source_data AS (
     {% endif %}
 ),
 
-deduplication AS (
+deduplicate AS (
     SELECT *
     FROM source_data
     qualify row_number() over(
@@ -43,7 +43,7 @@ final_staged AS (
         cast(null as timestamp) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM deduplication
+    FROM deduplicate
 )
 
 SELECT *
