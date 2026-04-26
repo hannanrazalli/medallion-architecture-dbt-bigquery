@@ -19,12 +19,12 @@ WITH source_data AS (
     FROM {{ source_silver }}
     {% if is_incremental() %}
         WHERE _processed_at > (
-            SELECT max(valid_from)
+            max(valid_from)
             FROM {{ this }})
     {% endif %}
 ),
 
-deduplication AS (
+deduplicate AS (
     SELECT *
     FROM source_data
     qualify row_number() over(
@@ -43,7 +43,7 @@ final_staged AS (
         cast(null as timestamp) AS valid_to,
         true AS is_current,
         {{ audit_columns('gold') }}
-    FROM deduplication
+    FROM deduplicate
 )
 
 SELECT *
@@ -63,7 +63,7 @@ SELECT
     {{ audit_columns('gold') }}
 FROM {{ this }} t
 INNER JOIN final_staged s
-    ON t.{{ pk }} = s.{{ pk }}
+    ON t.{{ pk }} = t.{{ pk }}
 WHERE t.is_current = true
     AND t.hash_key != s.hash_key
 
