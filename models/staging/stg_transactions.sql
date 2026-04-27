@@ -14,7 +14,7 @@ WITH raw_data AS (
 SELECT
     {% for cols in stg_cols %}
         {{ cols }}{% if not loop.last %}, {% endif %}
-    {% endfor %},
+    {% endfor %}
     CASE
         WHEN txn_id IS NULL OR txn_id = '' THEN 'CORRUPT'
         WHEN cust_id IS NULL OR cust_id < 0 THEN 'CORRUPT'
