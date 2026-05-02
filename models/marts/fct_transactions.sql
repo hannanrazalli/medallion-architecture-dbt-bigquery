@@ -4,7 +4,7 @@
 {%- set pk = fact_cols[0] -%}
 
 {{ config(
-    materialized='incremental',
+    materialized='view',
     unique_key='hash_key',
     incremental_strategy='merge',
     on_schema_change='append_new_columns',
@@ -26,7 +26,7 @@ WITH source_data AS (
     WHERE _is_deleted = false
     {% if is_incremental() %}
         AND _processed_at > (
-            SELECT timestamp_sub(max(_processed_at), INTERVAL 1 HOUR)
+            SELECT max(_processed_at), INTERVAL 1 HOUR
             FROM {{ this }})
     {% endif %}
 ),
